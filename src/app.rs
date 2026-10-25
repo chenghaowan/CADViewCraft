@@ -969,9 +969,6 @@ impl CadViewApp {
                             self.start_tool_b2b();
                         }
                     }
-                    if self.ribbon_icon_button(ui, "close", "清除", false).clicked() {
-                        self.clear_measurements();
-                    }
                     if self
                         .ribbon_icon_button(ui, "center_of_mass", "质心", self.show_centroid)
                         .on_hover_text("显示选中实体的质心标记")
@@ -1042,11 +1039,6 @@ impl CadViewApp {
                         self.tool = None;
                         self.status = "工具已取消".into();
                         self.refresh_highlight();
-                    }
-                    if self.ribbon_icon_button(ui, "close", "清除", false).on_hover_text("删除全部构造元素").clicked() {
-                        self.constructs.clear();
-                        self.refresh_highlight();
-                        self.status = "构造已清除".into();
                     }
                 });
             });
@@ -1199,14 +1191,6 @@ impl CadViewApp {
         self.b2b = None;
         self.status = "体-体测距:点第一个体(Esc 取消)".into();
         self.refresh_highlight();
-    }
-
-    fn clear_measurements(&mut self) {
-        self.tool = None;
-        self.p2p = None;
-        self.b2b = None;
-        self.refresh_highlight();
-        self.status = "测量已清除".into();
     }
 
     /// 左侧模型树:checkbox 显隐;立即模式下先收集要切换的路径,再统一应用。
