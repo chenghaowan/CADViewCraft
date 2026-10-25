@@ -72,18 +72,15 @@ fn walk(nodes: &[Node], path: Vec<usize>, f: &mut impl FnMut(&Node, &[usize])) {
 /// 拾取到的网格顶点(世界坐标)。
 #[derive(Clone)]
 pub struct VertexHit {
-    pub path: Vec<usize>,
     pub point: Vec3,
 }
 
 /// 拾取到的边:体路径 + 边号(与 `Body::edges(0.1)` 同序,即显示网格的边序)
-/// + 边上离射线最近的世界点。
+/// + 该边的世界折线(直线/圆弧判定用)。
 #[derive(Clone)]
 pub struct EdgeHit {
     pub path: Vec<usize>,
     pub edge: usize,
-    pub near: Vec3,
-    /// 该边的世界折线(直线/圆弧判定用)。
     pub polyline: Vec<Vec3>,
 }
 
@@ -98,8 +95,8 @@ pub fn pick_vertex(
     radius: f64,
     tol_px: f64,
 ) -> Option<VertexHit> {
-    let mut best: Option<(f64, f64, Vec<usize>, Vec3)> = None; // (屏幕距离, 相机距离, …)
-    walk(&doc.roots, Vec::new(), &mut |node, path| {
+    let mut best: Option<(f64, f64, Vec3)> = None; // (屏幕距离, 相机深度, 顶点)
+    walk(&doc.roots, Vec::new(), &mut |node, _path| {
         if !node.visible {
             return;
         }
@@ -114,12 +111,12 @@ pub fn pick_vertex(
                 d < *bd - 0.5 || (d - bd).abs() <= 0.5 && depth < *bdep
             });
             if take {
-                best = Some((d, depth, path.to_vec(), *p));
+                best = Some((d, depth, *p));
             }
         }
     });
-    let (_, _, path, point) = best?;
-    Some(VertexHit { path, point })
+    let (_, _, point) = best?;
+    Some(VertexHit { point })
 }
 
 /// 屏幕距离 ≤ `tol_px` 像素的最近边(对每条显示网格边折线的每段做屏幕投影判定)。
@@ -133,7 +130,7 @@ pub fn pick_edge(
     radius: f64,
     tol_px: f64,
 ) -> Option<EdgeHit> {
-    let mut best: Option<(f64, Vec<usize>, usize, Vec3, Vec<Vec3>)> = None;
+    let mut best: Option<(f64, Vec<usize>, usize, Vec<Vec3>)> = None;
     walk(&doc.roots, Vec::new(), &mut |node, path| {
         if !node.visible {
             return;
@@ -145,22 +142,22 @@ pub fn pick_edge(
             }
             for seg in e.windows(2) {
                 let (a, b) = (seg[0], seg[1]);
-                let Some(near) = screen_nearest_on_seg(cam, x, y, w, h, radius, a, b) else { continue };
-                if near.0 > tol_px {
+                let Some(d) = screen_dist_to_seg(cam, x, y, w, h, radius, a, b) else { continue };
+                if d > tol_px {
                     continue;
                 }
-                if best.as_ref().is_none_or(|(bd, ..)| near.0 < *bd) {
-                    best = Some((near.0, path.to_vec(), ei, near.1, e.clone()));
+                if best.as_ref().is_none_or(|(bd, ..)| d < *bd) {
+                    best = Some((d, path.to_vec(), ei, e.clone()));
                 }
             }
         }
     });
-    let (_, path, edge, near, polyline) = best?;
-    Some(EdgeHit { path, edge, near, polyline })
+    let (_, path, edge, polyline) = best?;
+    Some(EdgeHit { path, edge, polyline })
 }
 
-/// 点到屏幕上线段 ab 的最近:返回 (像素距离, 对应世界点)。段两端任一不可投影则 None。
-fn screen_nearest_on_seg(
+/// 点到屏幕上线段 ab 的最近距离(像素)。段两端任一不可投影则 None。
+fn screen_dist_to_seg(
     cam: &Camera,
     x: f64,
     y: f64,
@@ -169,15 +166,14 @@ fn screen_nearest_on_seg(
     radius: f64,
     a: Vec3,
     b: Vec3,
-) -> Option<(f64, Vec3)> {
+) -> Option<f64> {
     let (ax, ay, _) = cam.to_screen(a, w, h, radius)?;
     let (bx, by, _) = cam.to_screen(b, w, h, radius)?;
     let (dx, dy) = (bx - ax, by - ay);
     let len2 = dx * dx + dy * dy;
     let t = if len2 < 1e-9 { 0.0 } else { (((x - ax) * dx + (y - ay) * dy) / len2).clamp(0.0, 1.0) };
     let (sx, sy) = (ax + dx * t, ay + dy * t);
-    let d = ((sx - x).powi(2) + (sy - y).powi(2)).sqrt();
-    Some((d, a + (b - a) * t))
+    Some(((sx - x).powi(2) + (sy - y).powi(2)).sqrt())
 }
 
 /// 返回射线参数 t(>0 命中)。

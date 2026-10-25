@@ -23,15 +23,6 @@ impl Construct {
             Construct::Point { name, .. } | Construct::Axis { name, .. } | Construct::Csys { name, .. } => name,
         }
     }
-
-    /// 该元素上一点(标签定位)。
-    pub fn anchor(&self) -> Vec3 {
-        match self {
-            Construct::Point { p, .. } => *p,
-            Construct::Axis { origin, dir, len, .. } => *origin + *dir * *len,
-            Construct::Csys { origin, .. } => *origin,
-        }
-    }
 }
 
 /// P/A/C + 序号自动命名(同类现有最大号 +1)。
