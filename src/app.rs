@@ -788,7 +788,7 @@ impl CadViewApp {
                 crate::construct::Construct::Csys { origin, x, y, z, .. } => {
                     for (d, col) in [(*x, CSYS_X), (*y, CSYS_Y), (*z, CSYS_Z)] {
                         let e = *origin + d * arm;
-                        sc.line(origin.to_f32(), e.to_f32(), col, 2.0, true);
+                        sc.line(origin.to_f32(), e.to_f32(), col, 3.5, true);
                     }
                     mark(&mut sc, *origin, CONSTRUCT_POINT);
                 }
@@ -816,14 +816,27 @@ impl CadViewApp {
         {
             out.push((*c, format!("质心 ({:.1}, {:.1}, {:.1})", c.x, c.y, c.z), measure));
         }
+        use crate::construct::Construct;
         for c in &self.constructs {
-            use crate::construct::Construct;
-            let (text, at) = match c {
-                Construct::Point { name, p } => (format!("{name} ({:.1}, {:.1}, {:.1})", p.x, p.y, p.z), *p),
-                Construct::Axis { name, origin, dir, len, .. } => (name.clone(), *origin + *dir * *len),
-                Construct::Csys { name, origin, .. } => (name.clone(), *origin),
-            };
-            out.push((at, text, construct));
+            match c {
+                Construct::Point { name, p } => out.push((*p, format!("{name} ({:.1}, {:.1}, {:.1})", p.x, p.y, p.z), construct)),
+                Construct::Axis { name, origin, dir, len, .. } => out.push((*origin + *dir * *len, name.clone(), construct)),
+                // 坐标系:名字 + 三轴端字母(同 gizmo 配色)。
+                Construct::Csys { name, origin, .. } => out.push((*origin, name.clone(), construct)),
+            }
+        }
+        // 坐标系的 X/Y/Z 轴端字母。
+        let arm = self.axis_len();
+        for c in &self.constructs {
+            if let Construct::Csys { origin, x, y, z, .. } = c {
+                for (d, label, col) in [
+                    (*x, "X", Color32::from_rgb(224, 106, 106)),
+                    (*y, "Y", Color32::from_rgb(130, 210, 120)),
+                    (*z, "Z", Color32::from_rgb(120, 160, 245)),
+                ] {
+                    out.push((*origin + d * arm * 1.05, label.into(), col));
+                }
+            }
         }
         out
     }
