@@ -1,0 +1,30 @@
+[package]
+name = "cadviewcraft"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+# SolidCraft 底层 crate(纯几何/渲染层,不引参数化建模链)
+solidcraft-geom = { path = "../solidcraft/crates/geom" }
+solidcraft-kernel = { path = "../solidcraft/crates/kernel" }
+solidcraft-render = { path = "../solidcraft/crates/render" }
+solidcraft-gpu = { path = "../solidcraft/crates/gpu" }
+
+# 与 SolidCraft 生态对齐(vendor 的 egui-wgpu 补丁是 0.36 的);视口走 wgpu
+eframe = { version = "0.36", features = ["wgpu", "persistence"] }
+egui = "0.36"
+serde = { version = "1", features = ["derive"] }
+egui_extras = { version = "0.36", features = ["svg", "image", "file"] }
+rfd = "0.17"
+glam = "0.30"
+env_logger = "0.11"
+log = "0.4"
+
+# SolidCraft 对 crates.io 上若干 crate 带了本地修复,必须原样接线
+[patch.crates-io]
+truck-geometry = { path = "../solidcraft/vendor/truck-geometry" }
+truck-shapeops = { path = "../solidcraft/vendor/truck-shapeops" }
+truck-stepio = { path = "../solidcraft/vendor/truck-stepio" }
+truck-meshalgo = { path = "../solidcraft/vendor/truck-meshalgo" }
+matext4cgmath = { path = "../solidcraft/vendor/matext4cgmath" }
+egui-wgpu = { path = "../solidcraft/vendor/egui-wgpu" }

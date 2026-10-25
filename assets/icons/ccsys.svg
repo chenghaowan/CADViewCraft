@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Coordinate system</title>
+  <path d="M32 38.75L20.8 45.22L20.8 32.28L32 25.81Z" fill="#b8c3cf" stroke="#34465b" stroke-width="2.55" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M32 38.75L43.2 45.22L43.2 32.28L32 25.81Z" fill="#8e9faf" stroke="#34465b" stroke-width="2.55" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M32 38.75L43.2 45.22L32 51.69L20.8 45.22Z" fill="#e2e8ef" stroke="#34465b" stroke-width="2.55" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M32 38.75L48.46 48.25M32 38.75L15.54 48.25M32 38.75L32 19.75" fill="none" stroke="#ffffff" stroke-width="6.45" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M32 38.75L48.46 48.25M32 38.75L15.54 48.25M32 38.75L32 19.75" fill="none" stroke="#236ead" stroke-width="4.25" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M55.38 52.25L45.34 51.65L49.84 43.85ZM8.62 52.25L14.16 43.85L18.66 51.65ZM32 11.75L27.5 20.75L36.5 20.75Z" fill="#236ead"/>
+</svg>
