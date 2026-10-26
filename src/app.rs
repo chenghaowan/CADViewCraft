@@ -471,9 +471,9 @@ impl CadViewApp {
         });
     }
 
-    /// 构造轴的半长:随场景尺度(包围球半径的 1/4)。
+    /// 构造轴的半长:随场景尺度(包围球半径的 0.35,照 SolidCraft)。
     fn axis_len(&self) -> f64 {
-        self.vp.radius.max(1.0) * 0.25
+        self.vp.radius.max(1.0) * 0.35
     }
 
     /// 吸附拾取一个点(构造工具的输入):顶点 → 圆弧边圆心 → 圆类面圆心 → 面命中点。
@@ -797,35 +797,39 @@ impl CadViewApp {
         Some(sc)
     }
 
-    /// 屏幕叠加标签(测量结果/质心/构造元素),返回 (世界点, 文本, 颜色)。
-    fn overlay_labels(&self) -> Vec<(Vec3, String, Color32)> {
+    /// 屏幕叠加标签(测量结果/质心/构造元素),返回 (世界点, 文本, 颜色, 屏幕偏移像素)。
+    fn overlay_labels(&self) -> Vec<(Vec3, String, Color32, [f32; 2])> {
         let measure = Color32::from_rgb(120, 230, 140);
         let construct = Color32::from_rgb(255, 190, 90);
         let mut out = Vec::new();
         if let Some((a, b)) = &self.p2p {
-            out.push(((*a + *b) * 0.5, format!("{:.3} mm", (*b - *a).len()), measure));
+            out.push(((*a + *b) * 0.5, format!("{:.3} mm", (*b - *a).len()), measure, [0.0, 10.0]));
         }
         if let Some((_, Some((d, from, to, exact)))) = &self.b2b {
             let approx = if *exact { "" } else { " ≈" };
-            out.push(((*from + *to) * 0.5, format!("{d:.3} mm{approx}"), measure));
+            out.push(((*from + *to) * 0.5, format!("{d:.3} mm{approx}"), measure, [0.0, 10.0]));
         }
         if self.show_centroid
             && let Some(sel) = &self.sel
             && sel.face.is_none()
             && let Some(Some((_, _, c, _))) = self.mass.get(&sel.path)
         {
-            out.push((*c, format!("质心 ({:.1}, {:.1}, {:.1})", c.x, c.y, c.z), measure));
+            out.push((*c, format!("质心 ({:.1}, {:.1}, {:.1})", c.x, c.y, c.z), measure, [0.0, -10.0]));
         }
         use crate::construct::Construct;
         for c in &self.constructs {
             match c {
-                Construct::Point { name, p } => out.push((*p, format!("{name} ({:.1}, {:.1}, {:.1})", p.x, p.y, p.z), construct)),
-                Construct::Axis { name, origin, dir, len, .. } => out.push((*origin + *dir * *len, name.clone(), construct)),
-                // 坐标系:名字 + 三轴端字母(同 gizmo 配色)。
-                Construct::Csys { name, origin, .. } => out.push((*origin, name.clone(), construct)),
+                Construct::Point { name, p } => {
+                    out.push((*p, format!("{name} ({:.1}, {:.1}, {:.1})", p.x, p.y, p.z), construct, [0.0, -12.0]));
+                }
+                Construct::Axis { name, origin, dir, len, .. } => {
+                    out.push((*origin + *dir * *len, name.clone(), construct, [0.0, -12.0]));
+                }
+                // 坐标系的名字放在原点上方,避开三根轴线。
+                Construct::Csys { name, origin, .. } => out.push((*origin, name.clone(), construct, [0.0, -14.0])),
             }
         }
-        // 坐标系的 X/Y/Z 轴端字母。
+        // 坐标系的 X/Y/Z 轴端字母(贴轴端外侧,同 gizmo 配色)。
         let arm = self.axis_len();
         for c in &self.constructs {
             if let Construct::Csys { origin, x, y, z, .. } = c {
@@ -834,7 +838,7 @@ impl CadViewApp {
                     (*y, "Y", Color32::from_rgb(130, 210, 120)),
                     (*z, "Z", Color32::from_rgb(120, 160, 245)),
                 ] {
-                    out.push((*origin + d * arm * 1.05, label.into(), col));
+                    out.push((*origin + d * arm * 1.15, label.into(), col, [0.0, 0.0]));
                 }
             }
         }
@@ -1531,8 +1535,9 @@ impl eframe::App for CadViewApp {
                 }
                 self.vp.show(ui, rect);
                 self.draw_axes_gizmo(ui, rect);
-                // 叠加标签(测量结果/质心/构造)投影到屏幕。
-                for (mid, text, color) in self.overlay_labels() {
+                // 叠加标签(测量结果/质心/构造)投影到屏幕。to_screen 给的是视口内坐标,
+                // 绘制要加视口左上角,否则整体偏移一个左栏/ribbon 的宽度。
+                for (mid, text, color, offset) in self.overlay_labels() {
                     if let Some((sx, sy, _)) = self.vp.cam.to_screen(
                         mid,
                         f64::from(self.vp.size[0]),
@@ -1540,10 +1545,10 @@ impl eframe::App for CadViewApp {
                         self.vp.radius,
                     ) {
                         ui.painter().text(
-                            egui::pos2(sx as f32, sy as f32),
-                            egui::Align2::CENTER_TOP,
+                            egui::pos2(rect.left() + sx as f32 + offset[0], rect.top() + sy as f32 + offset[1]),
+                            egui::Align2::CENTER_CENTER,
                             text,
-                            egui::FontId::monospace(13.0),
+                            egui::FontId::monospace(12.0),
                             color,
                         );
                     }
