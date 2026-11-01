@@ -1,7 +1,7 @@
 # CADViewCraft 可行性评估(v2:复用 SolidCraft crate)
 
-> 目标:用 Rust + egui 做 Mayo 风格 CAD 查看器。**功能裁剪为:打开 STEP(含装配树)、模型树显隐、断面(剖切)、测量。爆炸视图不做。**
-> 实现方式(v2,2026-10-24 与用户确认):不再走 CLI 外壳,直接把 [SolidCraft](https://github.com/tangency-labs/solidcraft)(已 clone 到 `D:\study.git\solidcraft`)的底层 crate 作为库依赖;UI 参考 Mayo。
+> 目标:用 Rust + egui 做轻量 CAD 查看器。**功能裁剪为:打开 STEP(含装配树)、模型树显隐、断面(剖切)、测量。爆炸视图不做。**
+> 实现方式(v2,2026-10-24 与用户确认):不再走 CLI 外壳,直接把 [SolidCraft](https://github.com/tangency-labs/solidcraft)(已 clone 到 `D:\study.git\solidcraft`)的底层 crate 作为库依赖;UI 采用通用查看器布局。
 > v1(CLI 桥接方案)见本文末尾附注。
 
 ## 1. 结论
@@ -43,7 +43,7 @@ egui-wgpu      = { path = "../solidcraft/vendor/egui-wgpu" }
 ## 3. 架构
 
 ```
-CADViewCraft (eframe 0.36, Mayo 布局: 菜单栏/左模型树/中视口/右属性/底状态栏)
+CADViewCraft (eframe 0.36, 通用查看器布局: 菜单栏/左模型树/中视口/右属性/底状态栏)
 ├── importer/  读文件→编码探测→kernel::step_import_shared
 │              (编码探测可抄 io 层的 chardetng/GBK/Shift_JIS 处理)
 ├── scene/     StepImport.tree → 场景节点树(名字/变换/可见性开关)
@@ -61,7 +61,7 @@ CADViewCraft (eframe 0.36, Mayo 布局: 菜单栏/左模型树/中视口/右属�
 | 里程碑 | 内容 | 估算 |
 |---|---|---|
 | M0 对齐 | path 依赖 + vendor 补丁 + egui 降 0.36,骨架适配 | 2~3 天(骨架已建) |
-| M1 打开+显示 | STEP→tessellate→GpuScene→渲染;Mayo 式布局 | 1~1.5 周 |
+| M1 打开+显示 | STEP→tessellate→GpuScene→渲染;通用查看器布局 | 1~1.5 周 |
 | M2 树与显隐 | 装配树 UI、逐节点显隐、选择高亮(体/面级) | 3~5 天 |
 | M3 断面 | 剖切平面交互,cap+hatch(gpu 现成) | 2~4 天 |
 | M4 测量 | 属性面板 + 交互测量(点距/体距/点面距/面角) | 1~1.5 周 |
@@ -93,7 +93,7 @@ CADViewCraft (eframe 0.36, Mayo 布局: 菜单栏/左模型树/中视口/右属�
 
 - `src/scene.rs`:STEP → 节点树(实例变换烘焙进顶点,颜色取文件外观/默认钢蓝灰)→ `render::Scene`(着色体 + B-rep 边线 + 地面网格 + 背景)
 - `src/viewport.rs`:`egui_wgpu::CallbackTrait` 直通 `gpu::view::Renderer`(照抄 ui-egui/src/gpu.rs 的 split-target 模式:场景目标带 depth24-stencil8 + MSAA 4x,窗口目标无深度);相机用 `solidcraft_render::Camera`(Z-up,正交默认)
-- `src/app.rs`:Mayo 布局(菜单栏/左模型树/中视口/右属性/底部状态栏),后台线程加载,拖放 + 命令行参数 + rfd 文件对话框打开,树节点 checkbox 显隐
+- `src/app.rs`:通用查看器布局(菜单栏/左模型树/中视口/右属性/底部状态栏),后台线程加载,拖放 + 命令行参数 + rfd 文件对话框打开,树节点 checkbox 显隐
 - 验证:`--selftest --png` 离屏渲染(与视口同一 Scene→GPU 链路),100 孔板渲染质量达标(孔内壁明暗/圆角/边线正确),样例图见 `docs/img/`;GUI 冒烟测试进程稳定,clippy 零告警
 
 踩过的 API 坑(egui 0.36):`DroppedFile` 是 trait(`Arc<dyn DroppedFile>`,取 `f.path() -> &Path`);`Panel::default_size(f32)`;`Response::ctx` 是字段;`eframe::egui_wgpu` 才是(打了补丁的)egui_wgpu;`Vec3` 在 `solidcraft_geom` 根。
@@ -119,7 +119,7 @@ CADViewCraft (eframe 0.36, Mayo 布局: 菜单栏/左模型树/中视口/右属�
 
 ## 10. M4 完成记录(2026-10-25 ✅)
 
-测量(Mayo 四大核心功能收官):
+测量(四大核心功能收官):
 
 - **点-点距离**:菜单"测量 → 点-点距离"激活工具,视口点两个点 → 绿色连线 + 端点十字(高亮场景 overlay)+ 屏幕标签,Esc 取消。
 - **体-体距离**:同上点两个体 → 后台 `kernel::body_distance`(DistanceShape 精确 B-rep 投影,limit 用两体尺寸和)→ 连线 + 标签(非精确结果带 ≈ 号)。
@@ -142,7 +142,7 @@ CADViewCraft (eframe 0.36, Mayo 布局: 菜单栏/左模型树/中视口/右属�
 
 用户试用 Part1.stp 后的三项反馈:
 
-- **工具栏**(照 SolidCraft/Mayo):菜单栏下方一行——打开 | 适配/前视/等轴测 | 点距/体距(激活态高亮)/清除测量 | 断面(开关态高亮)。动作与菜单共用 helper(open_dialog/start_tool_*/toggle_section)。
+- **工具栏**(通用查看器布局):菜单栏下方一行——打开 | 适配/前视/等轴测 | 点距/体距(激活态高亮)/清除测量 | 断面(开关态高亮)。动作与菜单共用 helper(open_dialog/start_tool_*/toggle_section)。
 - **断面按钮**:工具栏可开关(默认自顶向下剖一半),细调仍在右面板。
 - **拾取点即时高亮**:① 工具收集中已点进度即画(点=十字标记;体=浅蓝平涂 TOOL_PENDING);② 修了端点十字是世界尺寸导致缩小时不可见的问题——改为按视口高度换算、恒定约 9px;③ 顺带修复显隐切换会重置相机的问题(refresh_scene 只在 fit_pending 时适配;适配视图独立为 fit_view)。
 
@@ -191,6 +191,19 @@ CADViewCraft (eframe 0.36, Mayo 布局: 菜单栏/左模型树/中视口/右属�
 - 版本约定:**viewer 分支 workspace version 从 0.0.1 起,每次发布构建手动 +0.0.1**(Cargo.toml 一处,关于对话框/标题同步显示);窗口标题 "CADViewCraft 0.0.1"
 - 启动:`D:\study.git\solidcraft	argetelease\solidcraft.exe [模型.stp]`
 - 后续精简原则(用户定):SolidCraft 有的直接全盘保留,**不需要的功能先不删、后期再改**
+
+## 19. 界面换成 SolidCraft 同款(2026-10-31)
+
+用户看完 `cargo build --release` 的旧界面(原生标题栏 + 组名式 ribbon + 左右停靠面板 + 底部状态栏),要求界面与 SolidCraft 一致、功能保持精简。确认三个决策:**自绘标题栏**、**去状态栏改视口提示**、**ribbon 两页签(视图/检查,默认检查)**。
+
+- **移植来源**(solidcraft 仓库,不依赖其 ui-egui crate):`theme.rs`/`palettes.rs`(令牌与 visuals)、`fonts.rs`(IBM Plex 变量字体)、`titlebar.rs` + `glyphs.rs`(拖动/窗控/品牌标)、`toolbar.rs`(页签与按钮画法)、`viewport.rs` + `navigation.rs`(导航罗盘)
+- **新增** `src/theme.rs`(精简 Tokens 暗/亮两套 + visuals 注入;面板色 #272B34、强调 #3A88EE 等数值照抄)、`src/fonts.rs`(Plex Sans wght 400/500/600/700 四 family + Plex Mono,中文回退 msyh;ttf 与 OFL 许可复制进 `assets/fonts/`)、`src/titlebar.rs`(拖动走 OS move loop、双击最大化、46px 窗控三钮、8px 边缘缩放区、三色品牌标)
+- **main.rs**:`with_decorations(false)`、窗口 1600×1000/最小 960×600(对齐 SolidCraft)
+- **app.rs 重写布局**:34px 应用栏(品牌标+名字+文件菜单+设置齿轮+版本+窗控)→ 117px ribbon(30px 页签行,active=accent_soft 填充+accent_ink 字;86px 按钮行,26px 图标+small 文字,激活=soft 底+1px accent 描边,组间 1px 竖线,无组名)→ 全出血视口(中央)→ 浮动卡片(左树 250 宽全高 / 右属性 264 宽随内容,圆角 8、间隙 7)→ 浮窗(断面/设置)→ 最上层边缘缩放区
+- **状态显示改造**:删底部状态栏;工具提示 → 视口左上角 accent 常驻文字(照 SolidCraft 草图状态);一次性消息(打开完成/测量结果/错误)→ 视口底部 toast 卡片(前导圆点,错误红,6 秒消失,最多 3 条)
+- **罗盘升级**:旧 2px 线段 gizmo → SolidCraft signed-axis 罗盘(116px 区、overlay 底圆 r49.5、正轴圆盘 r11+粗体字母、负轴空心环 r4.8、背离 γ0.55、悬停白盘;**点轴尖切换标准视角**,`Camera::looking_from`)
+- **视口主题化**:`build_scene` 背景/地面网格/边线随主题(暗 #2E3440 平色,亮 (240,243,247)→(203,210,221) 渐变);主题切换标记 `scene_dirty` 重建
+- 逻辑层(拾取/测量/构造/断面/GPU 管线)未动;`--selftest` 全链路复验通过
 
 ## 附:本机网络备注
 

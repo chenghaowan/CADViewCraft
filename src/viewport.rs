@@ -120,7 +120,8 @@ impl Viewport {
     pub fn show(&mut self, ui: &mut egui::Ui, rect: egui::Rect) {
         self.size = [rect.width(), rect.height()];
         if !self.gpu_ok {
-            ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(30, 32, 36));
+            let t = crate::theme::Tokens::get();
+            ui.painter().rect_filled(rect, 0.0, t.viewport_top);
             ui.painter().text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,

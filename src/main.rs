@@ -1,9 +1,16 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// Windows 上任何 profile 都是 GUI 子系统:开 GUI 不弹控制台(debug 也一样)。
+// 代价:直接敲 `exe --selftest` 时 println 不回显到终端——自检走 `cargo run`
+// (cargo 接管 stdio)或输出重定向,均不受影响。
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 mod app;
+mod catpart;
 mod construct;
+mod fonts;
 mod pick;
 mod scene;
+mod theme;
+mod titlebar;
 mod viewport;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -38,8 +45,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn run(open: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1440.0, 900.0])
-            .with_min_inner_size([800.0, 600.0])
+            // 自绘标题栏(照 SolidCraft):窗口无系统装饰,应用栏兼当标题栏。
+            .with_decorations(false)
+            .with_inner_size([1600.0, 1000.0])
+            .with_min_inner_size([960.0, 600.0])
             .with_title("CADViewCraft"),
         renderer: eframe::Renderer::Wgpu,
         ..Default::default()
@@ -48,7 +57,9 @@ fn run(open: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
         "CADViewCraft",
         options,
         Box::new(move |cc| {
-            install_cjk_font(&cc.egui_ctx);
+            // IBM Plex 界面字体 + 系统中文回退。
+            fonts::install(&cc.egui_ctx);
+            theme::apply(&cc.egui_ctx);
             // 注册 file:// + SVG 图像加载器(ribbon 图标用)。
             egui_extras::install_image_loaders(&cc.egui_ctx);
             let recent: Vec<String> = cc
@@ -83,32 +94,6 @@ fn run(open: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
         }),
     )?;
     Ok(())
-}
-
-/// 安装系统中文字体(egui 默认字体无 CJK 字形,中文会显示为方框)。
-/// 优先微软雅黑(.ttc 集合,FontData.index 取第 0 个 face),依次退到黑体/等线。
-fn install_cjk_font(ctx: &egui::Context) {
-    for (path, index) in [
-        (r"C:\Windows\Fonts\msyh.ttc", 0u32),
-        (r"C:\Windows\Fonts\simhei.ttf", 0),
-        (r"C:\Windows\Fonts\Deng.ttf", 0),
-        (r"C:\Windows\Fonts\simsun.ttc", 0),
-    ] {
-        let Ok(bytes) = std::fs::read(path) else { continue };
-        let mut fonts = egui::FontDefinitions::default();
-        let mut data = egui::FontData::from_owned(bytes);
-        data.index = index;
-        fonts.font_data.insert("cjk".into(), data.into());
-        for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
-            if let Some(list) = fonts.families.get_mut(&family) {
-                list.insert(0, "cjk".into());
-            }
-        }
-        ctx.set_fonts(fonts);
-        log::info!("CJK 字体: {path}");
-        return;
-    }
-    log::warn!("未找到系统中文字体,界面中文可能显示为方框");
 }
 
 /// 无 UI 的全链路自检:导入 → 细分 → 测量(→ 离屏渲染出 PNG,可带断面,验证 Scene→GPU 链路)。

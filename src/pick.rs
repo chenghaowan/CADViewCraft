@@ -69,9 +69,10 @@ fn walk(nodes: &[Node], path: Vec<usize>, f: &mut impl FnMut(&Node, &[usize])) {
     }
 }
 
-/// 拾取到的网格顶点(世界坐标)。
+/// 拾取到的网格顶点:体路径(关联引用用)+ 世界坐标。
 #[derive(Clone)]
 pub struct VertexHit {
+    pub path: Vec<usize>,
     pub point: Vec3,
 }
 
@@ -95,8 +96,8 @@ pub fn pick_vertex(
     radius: f64,
     tol_px: f64,
 ) -> Option<VertexHit> {
-    let mut best: Option<(f64, f64, Vec3)> = None; // (屏幕距离, 相机深度, 顶点)
-    walk(&doc.roots, Vec::new(), &mut |node, _path| {
+    let mut best: Option<(f64, f64, Vec<usize>, Vec3)> = None; // (屏幕距离, 相机深度, 路径, 顶点)
+    walk(&doc.roots, Vec::new(), &mut |node, path| {
         if !node.visible {
             return;
         }
@@ -111,12 +112,12 @@ pub fn pick_vertex(
                 d < *bd - 0.5 || (d - bd).abs() <= 0.5 && depth < *bdep
             });
             if take {
-                best = Some((d, depth, *p));
+                best = Some((d, depth, path.to_vec(), *p));
             }
         }
     });
-    let (_, _, point) = best?;
-    Some(VertexHit { point })
+    let (_, _, path, point) = best?;
+    Some(VertexHit { path, point })
 }
 
 /// 屏幕距离 ≤ `tol_px` 像素的最近边(对每条显示网格边折线的每段做屏幕投影判定)。
@@ -157,7 +158,7 @@ pub fn pick_edge(
 }
 
 /// 点到屏幕上线段 ab 的最近距离(像素)。段两端任一不可投影则 None。
-fn screen_dist_to_seg(
+pub fn screen_dist_to_seg(
     cam: &Camera,
     x: f64,
     y: f64,

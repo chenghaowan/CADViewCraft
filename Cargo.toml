@@ -9,6 +9,20 @@ solidcraft-geom = { path = "../solidcraft/crates/geom" }
 solidcraft-kernel = { path = "../solidcraft/crates/kernel" }
 solidcraft-render = { path = "../solidcraft/crates/render" }
 solidcraft-gpu = { path = "../solidcraft/crates/gpu" }
+# 导入链:io 出 STEP/IGES/FreeCAD/Rhino → STEP 文本与 STL/3MF/OBJ/glTF 网格读取,
+# doc 只为读 MeshFeature 里的 MeshData。
+solidcraft-io = { path = "../solidcraft/crates/io" }
+solidcraft-doc = { path = "../solidcraft/crates/doc" }
+
+# CATPart 转换支路(src/catpart.rs):cadmpeg 的 CATIA V5 编解码器(清洁室实现,
+# Apache-2.0)把 CATPart 解码成中性 CadIr 后重述为 AP214 STEP 文本,交给上面的
+# STEP 读取链——solidcraft 不感知 CATIA。0.6.3 只有 L1(仅容器识别),几何解码
+# L3 是 0.6.4+ 加入的,故与 solidcraft 的 pin 同步升到 0.6.7(同一依赖图里 0.6.x
+# 只能有一个版本)。registry 只开 catia/step:SolidCraft 自建时不含 catia feature。
+cadmpeg-codec-catia = "=0.6.7"
+cadmpeg-core = "=0.6.7"
+cadmpeg-ir = "=0.6.7"
+cadmpeg-registry = { version = "=0.6.7", default-features = false, features = ["catia", "step"] }
 
 # 与 SolidCraft 生态对齐(vendor 的 egui-wgpu 补丁是 0.36 的);视口走 wgpu
 eframe = { version = "0.36", features = ["wgpu", "persistence"] }
@@ -19,6 +33,10 @@ rfd = "0.17"
 glam = "0.30"
 env_logger = "0.11"
 log = "0.4"
+
+# debug 只留行号表,压 MSVC .pdb 体积(断点/行号仍在,完整类型信息省掉)
+[profile.dev]
+debug = "line-tables-only"
 
 # SolidCraft 对 crates.io 上若干 crate 带了本地修复,必须原样接线
 [patch.crates-io]
